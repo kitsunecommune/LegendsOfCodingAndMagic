@@ -8,10 +8,10 @@ namespace LoCaM.Model
 {
     public class Card
     {
-        public readonly int CardNumber;
+        public readonly int Number;
         public readonly int InstanceId;
         public readonly int Location;
-        public readonly int CardType;
+        public readonly CardType Type;
         public readonly int Cost;
         public readonly int Attack;
         public readonly int Defense;
@@ -19,14 +19,15 @@ namespace LoCaM.Model
         public readonly int MyHealthChange;
         public readonly int OpponentHealthChange;
         public readonly int CardDraw;
+
         private readonly string _abilities = "BCDGLW";
 
         public Card(string[] inputs)
         {
-            CardNumber = int.Parse(inputs[0]);
+            Number = int.Parse(inputs[0]);
             InstanceId = int.Parse(inputs[1]);
             Location = int.Parse(inputs[2]);
-            CardType = int.Parse(inputs[3]);
+            Type = (CardType)int.Parse(inputs[3]);
             Cost = int.Parse(inputs[4]);
             Attack = int.Parse(inputs[5]);
             Defense = int.Parse(inputs[6]);
@@ -38,77 +39,86 @@ namespace LoCaM.Model
 
         public override string ToString()
         {
-            var temp = $"Card Info: {CardNumber} {InstanceId} {Location} {CardType} Stats: {Cost} {Attack} {Defense}";
+            var temp = $"Card Info: {Number} {InstanceId} {Location} {Type} Stats: {Cost} {Attack} {Defense}";
             return $"{temp} Abilities: {Abilities} {MyHealthChange} {OpponentHealthChange} {CardDraw}";
         }
 
-        public double DetermineWorth()
+        public double DetermineWorth(double avgCostOffset)//Need to workshop this and possibly make cost factor in a lot more (esp for creatures) ALSO make items get calculated better!
         {
-            double score = 2*Defense + 5*Attack;
-            //give rating to items vs creatures
+            //give rating to items vs creatures...
+
+            double score = Math.Abs(Defense + 2*Attack); // assuming that nothing is a mix since I didn't see anything like that in the card list
 
             if (Abilities[0] == 'B') //Breakthrough AKA trample
             {
-                score += 0.9 * (Attack-1);
+                score += (Type == CardType.Creature ? 0.9 * (Attack-1) : 1); // atk = 1 is useless 2 is...just ok. when we get up to 5+ trample starts getting good
             }
-            if (Abilities[1] == 'C') //Charge AKA haste
+            if (Abilities[1] == 'C') //Charge AKA haste 
             {
-                score += 1;
+                score += 1;//don't much care about it as it just comes out quick (this will be higher in battle though based on the situation)
             }
-            if (Abilities[2] == 'D')
+            if (Abilities[2] == 'D')//Drain AKA lifelink
             {
-
+                score += (Type == CardType.Creature ? 0.7 * Attack : 1); //lifelink is better than etb self heal but based on attack way more
             }
             if (Abilities[3] == 'G') //Guard
             {
-                score += 2.25*Defense;
+                score += (Type == CardType.Creature ? 1.25 *Defense : 1); // can save your life and will be higher rated in battle but for drafting it isn't that that good
             }
-            if (Abilities[4] == 'L')
+            if (Abilities[4] == 'L')//Lethal AKA Deathtouch
             {
-                
+                score += (Type == CardType.Creature ? 2 * (12 - Attack) : 1);
             }
-            if (Abilities[5] == 'W')
+            if (Abilities[5] == 'W')//Ward AKA Divine Shield (ehhhh hearthstone instead of magic, but w/e, bite me)
             {
-
+                score += (Type == CardType.Creature ? Attack+Defense : 1);
+                if (Abilities[4] == 'L') score += 10;//Ward+Lethal are just too good a combo
             }
-            if (MyHealthChange > 0)
+            if (MyHealthChange > 0) //etb self health effects mostly healing
             {
-                score += MyHealthChange;
+                score += 0.5*MyHealthChange;
             }
-            if (OpponentHealthChange > 0)
+            if (OpponentHealthChange > 0) //etb one time enemy hits mostly damage
             {
-                score += 2 * OpponentHealthChange;
+                score += -OpponentHealthChange; //since it's usually negative want to add it correctly
             }
             if (CardDraw > 0)
             {
-                score += 4*CardDraw;
+                score += 2*CardDraw; //card draw is amazing always, but especially in drafting
             }
-            /*if (this.drain)
+
+            Console.Error.WriteLine($"{score} with offset {avgCostOffset} translates to:");
+            if (avgCostOffset >= 0)
             {
-                score += 0.7 * (double)this.attack;
+                score *= 1 + (Cost - avgCostOffset)/(Cost+1);//+1 keeps divide by zero from happening
+                //the higher the offset the more we want high cost cards
             }
-            if (this.lethal)
+            else
             {
-                score += 20.0 - (double)this.attack;
+                score *= 1 - Cost / (Cost - avgCostOffset);
+                //the more negative the offset the more we want low cost cards
             }
-            if (this.ward)
-            {
-                score += (double)this.attack;
-                score += 4;
-            }
-            if (this.ward && this.lethal)
-            {
-                score += 20.0 - (double)this.attack;
-            }
-            if (opponentHp < 10 && this.drain && n == 1)
-            {
-                score += (double)this.attack;
-            }*/
+            Console.Error.WriteLine($"{score} for card with cost {Cost}");
             return score;
+        }
+
+        public double DetermineThreatLevel()
+        {
+            //I want to only base it on current def and atk and constant abilities they have
+            //this will end up being used to determine priority for my attacks and priority of enemies to kill
+            return 1;
+        }
+
+        public int DetermineWinner()
+        {
+            //will return -1 for enemy win, 0 for both die, 1 for outright win (and -1 simply won't be an option if it's an item
+            return 1;
         }
 
         public double DetermineCurrentPlayability()
         {
+            //I want to base this on how much health 
+
             /*double score = 2 * (double)this.defense + 5 * (double)this.attack;
 
             if (opponentHp <= this.hpChangeOpponent && n == 0)
@@ -159,7 +169,7 @@ namespace LoCaM.Model
                 score += (double)this.attack;
             }
             return score;*/
-            return 0;
+            return 1;
         }
     }
 }

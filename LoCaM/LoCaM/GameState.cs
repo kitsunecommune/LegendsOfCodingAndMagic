@@ -1,7 +1,4 @@
 ﻿using System;
-using System.IO;
-using System.Text;
-using System.Collections;
 using System.Collections.Generic;
 using LoCaM.Model;
 
@@ -14,13 +11,13 @@ namespace LoCaM
         public List<Card> PlayerHand;//doubles as drafting area
         public List<Card> PlayerField;
         public List<Card> EnemyField;
-        public int OpponentHandSize;
-        public int OpponentTurnActions;
+        public int EnemyHandSize;
+        public int EnemyTurnActions;
 
         public void ReadDataIn()
         {
             string[] inputs;
-
+            //read in players
             var players = new List<Legend>();
             for (int i = 0; i < 2; i++)
             {
@@ -31,23 +28,21 @@ namespace LoCaM
             Player = players[0];
             Enemy = players[1];
 
-            //gonna be a while before I use any of these values
-            //
+            //gonna be a while before I use any of these values but this reads in enemy actions
             inputs = Console.ReadLine().Split(' ');
-            OpponentHandSize = int.Parse(inputs[0]);
-            OpponentTurnActions = int.Parse(inputs[1]);
+            EnemyHandSize = int.Parse(inputs[0]);
+            EnemyTurnActions = int.Parse(inputs[1]);
 
-            for (int i = 0; i < OpponentTurnActions; i++)
+            for (int i = 0; i < EnemyTurnActions; i++)
             {
                 string cardNumberAndAction = Console.ReadLine();
                 Console.Error.WriteLine($"Opponent Action: {cardNumberAndAction}");
             }
-            //add cardNumberAndAction to gameInfo at some point
-            //
+            //add cardNumberAndAction to GameState at some point
             //opponent actions are really only useful for debugging at this point
 
+            //read in each of the cards
             int cardCount = int.Parse(Console.ReadLine());
-            Console.Error.WriteLine($"cardCount is {cardCount}");
             EnemyField = new List<Card>();
             PlayerField= new List<Card>();
             PlayerHand = new List<Card>();
@@ -73,11 +68,12 @@ namespace LoCaM
 
         public override string ToString()
         {
-            var playersInfo = $"Player: {Player} Enemy: {Enemy} {OpponentHandSize} {OpponentTurnActions}";
-            var playerHand = string.Join(Environment.NewLine, PlayerHand);
-            var playerField = string.Join(Environment.NewLine, PlayerField);
-            var enemyField = string.Join(Environment.NewLine, EnemyField);
-            return $"{playersInfo} Cards in hand: {playerHand}, Cards on player's field: {playerField}, Cards on enemy's field: {enemyField}";
+            var playersInfo = $"Player: {Player} Enemy: {Enemy}, {EnemyHandSize} {EnemyTurnActions}{Environment.NewLine}";
+            var playerHand = $"Cards in hand:{Environment.NewLine}{string.Join(Environment.NewLine, PlayerHand)}{Environment.NewLine}";
+            var playerField = $"Cards on player's field:{string.Join(Environment.NewLine, PlayerField)}{Environment.NewLine}";
+            var enemyField = $"Cards on enemy's field:{string.Join(Environment.NewLine, EnemyField)}";
+
+            return $"{playersInfo}{playerHand}{playerField}{enemyField}";
         }
     }
 }

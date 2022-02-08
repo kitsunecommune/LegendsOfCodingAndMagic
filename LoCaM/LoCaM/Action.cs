@@ -9,10 +9,15 @@ namespace LoCaM
 {
     public class Action
     {
-        private GameState _gameState;
-        public Action(GameState gameState)
+        public GameState GameState;
+
+        private List<int> _cardCosts;
+        private int _goalAvgCost;
+
+        public Action()
         {
-            _gameState = gameState;
+            _cardCosts = new List<int>();
+            _goalAvgCost = 5;
         }
 
         public string TakeTurn(string phase)
@@ -46,12 +51,12 @@ namespace LoCaM
             //update this so that it creates a solid mana curve at the very least
             //ideally develop some sort of rarity scheme or something?
             //maybe value specific keywords over others, maybe value groupings too? tribal decks and such
-            var choices = _gameState.PlayerHand;
+            var choices = GameState.PlayerHand;
             var bestChoice = 0;
             double bestWorth = 0;
             for (var cardPosition = 0; cardPosition < choices.Count; cardPosition++){
                 
-                var worth = choices[cardPosition].DetermineWorth();
+                var worth = choices[cardPosition].DetermineWorth(GetCostOffset());
                 Console.Error.WriteLine(worth);
                 if (worth > bestWorth)
                 {
@@ -60,6 +65,7 @@ namespace LoCaM
                 }
             }
 
+            _cardCosts.Add(choices[bestChoice].Cost);
             return $"PICK {bestChoice}";
         }
 
@@ -70,17 +76,17 @@ namespace LoCaM
             var commands = new List<string>();
             var enemiesThatHaveGuard = new List<Card>();
 
-            foreach (var card in _gameState.EnemyField)
+            foreach (var card in GameState.EnemyField)
             {
                 if (card.Abilities.Contains("G") || card.Abilities.Contains("B"))
                 {
                     enemiesThatHaveGuard.Add(card);
                 }
             }
-            var enemyToAttack = -1;
 
-            foreach (var card in _gameState.PlayerField)
+            foreach (var card in GameState.PlayerField)
             {
+                var enemyToAttack = -1;
                 if (enemiesThatHaveGuard != null && enemiesThatHaveGuard.Any())
                 {
                     enemyToAttack = enemiesThatHaveGuard[0].InstanceId;
@@ -108,19 +114,19 @@ namespace LoCaM
             //prioritize playing on curve and such, maybe shift from list to hash to help with hitting mana curve
             //prioritize things that are relevant to enemies and such
             var commands = new List<string>();
-            var currentMana = _gameState.Player.Mana;
-            foreach (var card in _gameState.PlayerHand)
+            var currentMana = GameState.Player.Mana;
+            foreach (var card in GameState.PlayerHand)
             {
                 if (card.Cost <= currentMana)
                 {
-                    if (!(card.MyHealthChange > 0 && _gameState.Player.Health > (30 - card.MyHealthChange)))
+                    if (!(card.MyHealthChange > 0 && GameState.Player.Health > (30 - card.MyHealthChange)))
                     {
                         commands.Add($"SUMMON {card.InstanceId}");
                         currentMana -= card.Cost;
                         Console.Error.WriteLine($"Summoned Card's Abilities:{card.Abilities}");
                         if (card.Abilities.Contains("C"))
                         {
-                            _gameState.PlayerField.Add(card);
+                            GameState.PlayerField.Add(card);
                         }
                     }
                 }
@@ -133,5 +139,11 @@ namespace LoCaM
             return "";
         }
 
+        private double GetCostOffset()
+        {
+            if (_cardCosts == null || _cardCosts.Count == 0) { return 0; }
+            var currAvgCost =_cardCosts.Sum() / _cardCosts.Count;
+            return _goalAvgCost - currAvgCost;
+        }
     }
 }

@@ -7,22 +7,23 @@ namespace LoCaM
         static void Main(string[] args)
         {
             var gameState = new GameState();
+            var action = new Action();
             var phase = "Draft";
 
             // game loop
             while (true)
             {
-                var turnAction = "PASS";
                 gameState.ReadDataIn();
                 Console.Error.WriteLine(gameState);
 
-                var action = new Action(gameState);
+                action.GameState = gameState;
 
                 if (gameState.Player.Mana > 0)
                 {
                     phase = "Battle";
                 }
-                turnAction = action.TakeTurn(phase);
+                Console.Error.WriteLine($"Entering gameState phase: {phase}");
+                string turnAction = action.TakeTurn(phase);
                 Console.WriteLine(turnAction);
             }
         }
