@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
+using System.Diagnostics;
 namespace LoCaM
 {
     public class Action
@@ -28,11 +28,97 @@ namespace LoCaM
             }
             else
             {
+                var watch = new Stopwatch();
                 var commands = new List<string>();
+                //set up a while loop or for loop to cycle through possible actions being able to attack or summon etc multiple times as individual actions
 
-                commands.AddRange(SummonCreature());
+                //ok so first thing is determine the threat levels of all of the enemies and rank them in terms of priority. I need to set a default priority for enemy player
+                //then I need to for each one determine if it's worth killing it or not. if it's not worth killing then don't bother looking at any more of the lower ranks and just hit player
+                //if it is worth killing find the most efficient way of killing it, basically try taking it out with the minimum price loss
+
+                //off topic but might be worth storing every copy of a card in a static dictionary? Though I guess that would make me have to add current health and a bunch of stuff so prob not
+
+
+
+                //relic of the past, will be replaced by gamestate tracking
+                //maybe check to see if we even have enough mana for anything in our hand first
+                var enemiesThatHaveGuard = new List<Card>();
+                var enemies = new SortedDictionary<double, Card>();
+                foreach(var card in GameState.EnemyField)
+                {
+                    var threatLevel = card.DetermineThreatLevel();
+                    if (card.Abilities[3] =='G')
+                    {
+                        enemiesThatHaveGuard.Add(card);
+                        threatLevel += 100;
+                    }
+                    if(card.Abilities[0] == 'B') threatLevel += 20;
+                    if (card.Abilities[0] == 'L') threatLevel -= 40;
+                    enemies[threatLevel] = card;
+                }
+                foreach(var card in enemies){ Console.Error.Write($"{card.Key}: {card.Value}"); }
+                foreach (var card in enemiesThatHaveGuard) { Console.Error.Write($"{card}"); }
+                //look through PlayerHand, PlayerField. use Player and Enemy for health data
+
+                var cardsInHand = new SortedDictionary<double, Card>();
+                foreach (var card in GameState.PlayerHand)
+                {
+                    var threatLevel = card.DetermineCurrentPlayability();
+                    cardsInHand[threatLevel] = card;
+                }
+                foreach (var card in enemies) { Console.Error.Write($"{card.Key}: {card.Value}"); }
+
+
+                //sort cards by priority for attacking
+                var myUnits = new SortedDictionary<double, Card>();
+                foreach (var card in GameState.PlayerField)
+                {
+                    var threatLevel = card.DetermineThreatLevel();
+                    myUnits[threatLevel] = card;
+                }
+                foreach (var card in enemies) { Console.Error.Write($"{card.Key}: {card.Value}"); }
+
+                //play all the cards you can
+                var currentMana = GameState.Player.Mana;
+                foreach(var card in cardsInHand)
+                {
+                    if (card.Value.Cost <= currentMana)
+                    {
+                        currentMana -= card.Value.Cost;
+                        commands.Add($"SUMMON {card.Value.InstanceId}");
+                        if (card.Value.Abilities[1] == 'C')
+                        {
+                            myUnits.Add(card.Key,card.Value);
+                        }
+                    }
+                }
+
+                //attack with as many cards as you can
+                foreach (var card in myUnits)
+                {
+                    KeyValuePair<double, Card>? potentialTarget = null;
+                    if (enemies.Count > 0) { potentialTarget = enemies.First(); }
+
+                    if (potentialTarget == null)
+                    {
+                        commands.Add($"ATTACK {card.Value.InstanceId} -1");
+                    }
+                    else
+                    {
+                        commands.Add($"ATTACK {card.Value.InstanceId} {Attack(potentialTarget)}");
+                        if (card.Value.Attack > potentialTarget.Value.Value.Defense)
+                        {
+                            if (enemies.Count > 0)
+                            {
+                                enemies.Remove(enemies.Keys.First());
+                            }
+                        }
+                    }
+                }
+
+                //now have access to runes so I should use them in calculations in the future
+
                 //commands.Add(UseItem());
-                commands.AddRange(Attack());
                 //split up summons so that you can summon more after attacking and only summon charge creatures before
 
                 if (commands != null && commands.Any())
@@ -43,10 +129,11 @@ namespace LoCaM
                 {
                     return "PASS";
                 }
+                Console.Error.WriteLine(watch.ElapsedMilliseconds);
             }
         }
 
-        public string DraftCard()
+        private string DraftCard()
         {
             //update this so that it creates a solid mana curve at the very least
             //ideally develop some sort of rarity scheme or something?
@@ -69,47 +156,14 @@ namespace LoCaM
             return $"PICK {bestChoice}";
         }
 
-        public List<string> Attack()
+        public int Attack(KeyValuePair<double, Card>? enemyCard)
         {
-            //prioritize enemies that have low health and won't outweigh my own damange
-            //also prioritize killing enemies with breakthrough (and maybe Guard? if that's not automatically done)
-            var commands = new List<string>();
-            var enemiesThatHaveGuard = new List<Card>();
-
-            foreach (var card in GameState.EnemyField)
-            {
-                if (card.Abilities.Contains("G") || card.Abilities.Contains("B"))
-                {
-                    enemiesThatHaveGuard.Add(card);
-                }
-            }
-
-            foreach (var card in GameState.PlayerField)
-            {
-                var enemyToAttack = -1;
-                if (enemiesThatHaveGuard != null && enemiesThatHaveGuard.Any())
-                {
-                    enemyToAttack = enemiesThatHaveGuard[0].InstanceId;
-                    Console.Error.WriteLine(enemiesThatHaveGuard[0]);
-                    if (enemiesThatHaveGuard[0].Defense < card.Attack)
-                    {
-                        enemiesThatHaveGuard.RemoveAt(0);
-                    }
-                }
-                switch (card.Abilities)
-                {
-                    case "B":
-
-                        break;
-                    default:
-                        commands.Add($"ATTACK {card.InstanceId} {enemyToAttack}");
-                        break;
-                }
-            }
-            return commands;
+            if (enemyCard == null) { return enemyCard.Value.Value.InstanceId; }
+            var enemyThreat = 50;
+            return enemyCard.Value.Key > enemyThreat ? enemyCard.Value.Value.InstanceId : -1;
         }
 
-        public List<string> SummonCreature()
+        private string SummonCreature()
         {
             //prioritize playing on curve and such, maybe shift from list to hash to help with hitting mana curve
             //prioritize things that are relevant to enemies and such
@@ -131,10 +185,10 @@ namespace LoCaM
                     }
                 }
             }
-            return commands;
+            return commands.FirstOrDefault();
         }
 
-        public string UseItem()
+        private string UseItem()
         {
             return "";
         }

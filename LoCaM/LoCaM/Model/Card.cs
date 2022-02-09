@@ -20,7 +20,7 @@ namespace LoCaM.Model
         public readonly int OpponentHealthChange;
         public readonly int CardDraw;
 
-        private readonly string _abilities = "BCDGLW";
+        private readonly string _abilities = "BCDGLW";//might want to split abilities into an Object? Not really sure if I should bother though cuz might be overengineering
 
         public Card(string[] inputs)
         {
@@ -42,6 +42,10 @@ namespace LoCaM.Model
             var temp = $"Card Info: {Number} {InstanceId} {Location} {Type} Stats: {Cost} {Attack} {Defense}";
             return $"{temp} Abilities: {Abilities} {MyHealthChange} {OpponentHealthChange} {CardDraw}";
         }
+
+        // update everything with knowledge gained from the following 3 sources: https://www.breakthegame.net/hearthstone-theory-and-math/
+        //https://elie.net/blog/hearthstone/how-to-appraise-hearthstone-card-values/
+        //https://www.icy-veins.com/hearthstone/arena-guide
 
         public double DetermineWorth(double avgCostOffset)//Need to workshop this and possibly make cost factor in a lot more (esp for creatures) ALSO make items get calculated better!
         {
@@ -104,19 +108,28 @@ namespace LoCaM.Model
 
         public double DetermineThreatLevel()
         {
+            var score = DetermineWorth(5);
             //I want to only base it on current def and atk and constant abilities they have
             //this will end up being used to determine priority for my attacks and priority of enemies to kill
-            return 1;
+            return score;
         }
 
-        public int DetermineWinner()
+        public double DetermineWinner()
         {
+            var score = DetermineWorth(5);
             //will return -1 for enemy win, 0 for both die, 1 for outright win (and -1 simply won't be an option if it's an item
-            return 1;
+            //don't forget to take into account ward and drain
+            //might actually be better to return how injured each side is or something
+
+            //may return change in worth or whatever? idk like net loss/gain depending on the side or whatever
+            return score;
         }
 
         public double DetermineCurrentPlayability()
         {
+            //basically grab the base score from threatLevel (when it's on the field) and add the values from etb effects
+            var score = DetermineThreatLevel();
+            
             //I want to base this on how much health 
 
             /*double score = 2 * (double)this.defense + 5 * (double)this.attack;
@@ -169,7 +182,7 @@ namespace LoCaM.Model
                 score += (double)this.attack;
             }
             return score;*/
-            return 1;
+            return score;
         }
     }
 }
